@@ -1,14 +1,19 @@
-use std::io;
+use std::io::{self, BufRead};
 // use std::io::Write;
 use regex::Regex;
 
 fn main() -> io::Result<()> {
+    process(&mut io::stdin().lock());
+    Ok(())
+}
+
+fn process(src: &mut dyn BufRead) {
     let re = Regex::new(r"\[[^\]]+]: .+\s*$").unwrap();
     let more = "<!--more-->";
     let mut vec = Vec::new();
 
     // Iterate over our input from stdin
-    let lines = io::stdin().lines();
+    let lines = src.lines();
     for line in lines {
         let s = line.unwrap();
         // println!("got a line: {}", s);
@@ -47,7 +52,4 @@ fn main() -> io::Result<()> {
         let _ = println!("{}", link);
         eprintln!("output a link {}", link)
     }
-    vec.clear();
-
-    Ok(())
 }
