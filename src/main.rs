@@ -1,3 +1,18 @@
+/// mdanchored exists to slightly neaten link references within
+/// markdown files. It moves link references to the end of the
+/// section they are found within. A section is terminated with
+/// either a new heading, regardless of level, or Hugo's
+/// <!--more--> text.
+///
+/// We push the result through deno fmt, so that this app can be
+/// used as a one-stop shop to make markdown files more to my
+/// liking.
+///
+/// Placing links before the "more" ensures the Hugo's Summary
+/// doesn't end up thinking there is more to come, avoiding
+/// an uneeded "Read More" link.
+/// This is purely selfish, of course, because it makes dx13
+/// neater.
 use regex::Regex;
 use std::{
     io::{self, BufRead, Write},
@@ -30,6 +45,9 @@ fn main() {
     deno.wait().expect("deno died");
 }
 
+/// Reads a markdown document from src, moving link references
+/// to the end of "sections", writing the result to dst.
+/// A "section" is ended by a new heading or Hugo's <!--more-->
 fn process(src: &mut dyn BufRead, dst: &mut dyn Write) -> Result<(), io::Error> {
     let re = Regex::new(r"\[[^\]]+]: .+\s*$").unwrap();
     let more = "<!--more-->";
@@ -37,20 +55,23 @@ fn process(src: &mut dyn BufRead, dst: &mut dyn Write) -> Result<(), io::Error> 
 
     // Iterate over our input from stdin
     for line in src.lines() {
-        let s = line.unwrap();
+        let s = line?;
 
         if re.is_match(&s) {
-            // If we find a link, save it for later.
+            // If we find a link, save it for later, and
+            // don't print it to dst just yet.
             eprintln!("got a link {}", s);
             link_refs.push(s);
         } else {
             // If we find a header or <!--more-->, print
-            // the found links before the line.
+            // the links we've collected for this section
+            // in link_refs, then print the header.
             let mut found = false;
-            if s.trim() == more {
+            let trimmed = s.trim();
+            if trimmed == more {
                 found = true;
                 eprintln!("line was more");
-            } else if s.starts_with("#") {
+            } else if trimmed.starts_with("#") {
                 found = true;
                 eprintln!("line was header");
             }
