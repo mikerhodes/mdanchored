@@ -1,12 +1,15 @@
 use regex::Regex;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 
-fn main() -> io::Result<()> {
-    process(&mut io::stdin().lock());
-    Ok(())
+fn main() {
+    let r = process(&mut io::stdin().lock(), &mut io::stdout().lock());
+    if let Err(err) = r {
+        println!("Error: {}", err);
+        std::process::exit(1)
+    }
 }
 
-fn process(src: &mut dyn BufRead) {
+fn process(src: &mut dyn BufRead, dst: &mut dyn Write) -> Result<(), io::Error> {
     let re = Regex::new(r"\[[^\]]+]: .+\s*$").unwrap();
     let more = "<!--more-->";
     let mut link_refs = Vec::new();
@@ -33,21 +36,22 @@ fn process(src: &mut dyn BufRead) {
 
             if found && link_refs.len() > 0 {
                 for link in &link_refs {
-                    let _ = println!("{}", link);
-                    eprintln!("output a link {}", link)
+                    writeln!(dst, "{}", link)?;
+                    eprintln!("output a link {}", link);
                 }
                 link_refs.clear();
-                println!("")
+                writeln!(dst)?;
             }
 
-            let _ = println!("{}", s);
+            writeln!(dst, "{}", s)?;
         }
     }
 
     // Print any remaining links on exit
-    println!("");
+    writeln!(dst)?;
     for link in &link_refs {
-        let _ = println!("{}", link);
+        writeln!(dst, "{}", link)?;
         eprintln!("output a link {}", link)
     }
+    Ok(())
 }
