@@ -20,29 +20,46 @@ use std::{
 };
 
 fn main() {
-    let mut deno = Command::new("deno")
-        .args(["fmt", "--ext", "md", "-"])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::inherit())
-        .spawn()
-        .expect("Failed to start sed process");
+    // Only post-process with deno fmt if deno is available
+    let denochk = Command::new("deno").arg("-V").status();
+    let deno_available = match denochk {
+        Ok(_) => true,
+        Err(_) => false,
+    };
 
-    // If the deno process fills its stdout buffer, it may end up
-    // waiting until the parent reads the stdout, and not be able to
-    // read stdin in the meantime, causing a deadlock.
-    // Writing from another thread ensures that stdout is being read
-    // at the same time, avoiding the problem.
-    // https://doc.rust-lang.org/std/process/index.html.
-    let mut stdin = deno.stdin.take().expect("Failed to open stdin");
-    std::thread::spawn(move || {
-        let r = process(&mut io::stdin().lock(), &mut stdin);
+    if deno_available {
+        eprintln!("deno available; will post-process.");
+        let mut deno = Command::new("deno")
+            .args(["fmt", "--ext", "md", "-"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::inherit())
+            .spawn()
+            .expect("Failed to start deno process");
+
+        // If the deno process fills its stdout buffer, it may end up
+        // waiting until the parent reads the stdout, and not be able to
+        // read stdin in the meantime, causing a deadlock.
+        // Writing from another thread ensures that stdout is being read
+        // at the same time, avoiding the problem.
+        // https://doc.rust-lang.org/std/process/index.html.
+        let mut stdin = deno.stdin.take().expect("Failed to open stdin");
+        std::thread::spawn(move || {
+            let r = process(&mut io::stdin().lock(), &mut stdin);
+            if let Err(err) = r {
+                println!("Error: {}", err);
+                std::process::exit(1)
+            }
+        });
+
+        deno.wait().expect("deno died");
+    } else {
+        eprintln!("deno not available; will not post-process.");
+        let r = process(&mut io::stdin().lock(), &mut io::stdout().lock());
         if let Err(err) = r {
             println!("Error: {}", err);
             std::process::exit(1)
         }
-    });
-
-    deno.wait().expect("deno died");
+    }
 }
 
 /// Reads a markdown document from src, moving link references
