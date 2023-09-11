@@ -65,7 +65,7 @@ fn main() {
 /// Reads a markdown document from src, moving link references
 /// to the end of "sections", writing the result to dst.
 /// A "section" is ended by a new heading or Hugo's <!--more-->
-fn process(src: &mut dyn BufRead, dst: &mut dyn Write) -> Result<(), io::Error> {
+fn process<S: BufRead, D: Write>(src: &mut S, dst: &mut D) -> Result<(), io::Error> {
     let re = Regex::new(r"\[[^\]]+]: .+\s*$").unwrap();
     let more = "<!--more-->";
     let mut link_refs = Vec::new();
