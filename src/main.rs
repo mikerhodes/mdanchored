@@ -19,16 +19,27 @@ use std::{
     process::{Command, Stdio},
 };
 
-fn main() {
-    // Only post-process with deno fmt if deno is available
-    let denochk = Command::new("deno").arg("-V").status();
-    let deno_available = match denochk {
-        Ok(_) => true,
-        Err(_) => false,
-    };
+use argh::FromArgs;
 
-    if deno_available {
-        eprintln!("deno available; will post-process.");
+#[derive(FromArgs)]
+/// Neaten your Markdown anchors.
+struct Args {
+    /// post-process Markdown with deno fmt
+    #[argh(switch)]
+    deno: bool,
+}
+
+fn main() {
+    let args: Args = argh::from_env();
+
+    if args.deno {
+        let denochk = Command::new("deno").arg("-V").status();
+        if let Err(_) = denochk {
+            eprintln!("Error: Cannot run deno; check it is on your $PATH.");
+            std::process::exit(1);
+        }
+
+        // we set up a pipeline stdin -> process() -> deno -> stdout
         let mut deno = Command::new("deno")
             .args(["fmt", "--ext", "md", "-"])
             .stdin(Stdio::piped())
@@ -42,9 +53,9 @@ fn main() {
         // Writing from another thread ensures that stdout is being read
         // at the same time, avoiding the problem.
         // https://doc.rust-lang.org/std/process/index.html.
-        let mut stdin = deno.stdin.take().expect("Failed to open stdin");
+        let mut deno_stdin = deno.stdin.take().expect("Failed to open stdin");
         std::thread::spawn(move || {
-            let r = process(&mut io::stdin().lock(), &mut stdin);
+            let r = process(&mut io::stdin().lock(), &mut deno_stdin);
             if let Err(err) = r {
                 println!("Error: {}", err);
                 std::process::exit(1)
@@ -53,7 +64,6 @@ fn main() {
 
         deno.wait().expect("deno died");
     } else {
-        eprintln!("deno not available; will not post-process.");
         let r = process(&mut io::stdin().lock(), &mut io::stdout().lock());
         if let Err(err) = r {
             println!("Error: {}", err);
