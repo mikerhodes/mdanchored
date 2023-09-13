@@ -33,7 +33,10 @@ fn main() {
     let args: Args = argh::from_env();
 
     if args.deno {
-        let denochk = Command::new("deno").arg("-V").status();
+        let denochk = Command::new("deno")
+            .arg("-V")
+            .stdout(Stdio::null())
+            .status();
         if let Err(_) = denochk {
             eprintln!("Error: Cannot run deno; check it is on your $PATH.");
             std::process::exit(1);
@@ -79,10 +82,29 @@ fn process<S: BufRead, D: Write>(src: &mut S, dst: &mut D) -> Result<(), io::Err
     let re = Regex::new(r"\[[^\]]+]: .+\s*$").unwrap();
     let more = "<!--more-->";
     let mut link_refs = Vec::new();
+    let mut in_code_block = false;
 
     // Iterate over our input from stdin
     for line in src.lines() {
         let s = line?;
+        let trimmed = s.trim();
+
+        // Avoid moving things in code blocks around
+        if trimmed.starts_with("```") {
+            if !in_code_block {
+                in_code_block = true;
+                eprintln!("entered code block");
+            } else {
+                eprintln!("exited code block");
+                in_code_block = false;
+            }
+            writeln!(dst, "{}", trimmed)?;
+            continue;
+        }
+        if in_code_block {
+            writeln!(dst, "{}", trimmed)?;
+            continue;
+        }
 
         if re.is_match(&s) {
             // If we find a link, save it for later, and
@@ -94,7 +116,6 @@ fn process<S: BufRead, D: Write>(src: &mut S, dst: &mut D) -> Result<(), io::Err
             // the links we've collected for this section
             // in link_refs, then print the header.
             let mut found = false;
-            let trimmed = s.trim();
             if trimmed == more {
                 found = true;
                 eprintln!("line was more");

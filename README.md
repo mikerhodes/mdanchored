@@ -54,3 +54,6 @@ link in the middle.
 I love hanging out below this
 heading.
 ```
+
+`mdanchored` does nothing other than this transformation (unless you pass
+`--deno`).
