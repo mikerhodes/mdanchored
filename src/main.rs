@@ -145,3 +145,78 @@ fn process<S: BufRead, D: Write>(src: &mut S, dst: &mut D) -> Result<(), io::Err
     }
     Ok(())
 }
+
+#[test]
+/// checks that a few link references are moved
+fn singlelink() {
+    let input = "Here is some code 
+
+[link]: foo
+[link]: http:foo/bar
+
+para 
+
+## A heading
+para
+[link]: http:foo/bar/baz
+paraa sdf dfsdf
+
+## Another heading
+";
+    let expected = "Here is some code 
+
+
+para 
+
+[link]: foo
+[link]: http:foo/bar
+
+## A heading
+para
+paraa sdf dfsdf
+
+[link]: http:foo/bar/baz
+
+## Another heading
+
+";
+    let mut result: Vec<u8> = Vec::new();
+    let _ = process(&mut input.as_bytes(), &mut result);
+    assert_eq!(String::from_utf8(result).expect("bad string"), expected);
+}
+
+#[test]
+/// code blocks should not have embedded link references moved.
+fn codeblock() {
+    let input = "Here is some code 
+```
+[link]: foo
+
+para 
+```
+## A heading
+para
+[link]: http:foo/bar/baz
+paraa sdf dfsdf
+
+## Another heading
+";
+    let expected = "Here is some code 
+```
+[link]: foo
+
+para
+```
+## A heading
+para
+paraa sdf dfsdf
+
+[link]: http:foo/bar/baz
+
+## Another heading
+
+";
+    let mut result: Vec<u8> = Vec::new();
+    let _ = process(&mut input.as_bytes(), &mut result);
+    assert_eq!(String::from_utf8(result).expect("bad string"), expected);
+}
