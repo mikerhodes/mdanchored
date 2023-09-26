@@ -79,7 +79,7 @@ fn main() {
 /// to the end of "sections", writing the result to dst.
 /// A "section" is ended by a new heading or Hugo's <!--more-->
 fn process<S: BufRead, D: Write>(src: &mut S, dst: &mut D) -> Result<(), io::Error> {
-    let re = Regex::new(r"\[[^\]]+]: .+\s*$").unwrap();
+    let re = Regex::new(r"^\[[^\]]+]: .+\s*$").unwrap();
     let more = "<!--more-->";
     let mut link_refs = Vec::new();
     let mut in_code_block = false;
@@ -178,6 +178,34 @@ paraa sdf dfsdf
 [link]: http:foo/bar/baz
 
 ## Another heading
+
+";
+    let mut result: Vec<u8> = Vec::new();
+    let _ = process(&mut input.as_bytes(), &mut result);
+    assert_eq!(String::from_utf8(result).expect("bad string"), expected);
+}
+
+#[test]
+/// checks that a few link references are moved
+fn onlystartofline() {
+    let input = "Here is some code 
+
+foo bar [link]: foo
+[link]: http:foo/bar
+
+para 
+
+## A heading
+";
+    let expected = "Here is some code 
+
+foo bar [link]: foo
+
+para 
+
+[link]: http:foo/bar
+
+## A heading
 
 ";
     let mut result: Vec<u8> = Vec::new();
