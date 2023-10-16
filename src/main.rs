@@ -98,11 +98,11 @@ fn process<S: BufRead, D: Write>(src: &mut S, dst: &mut D) -> Result<(), io::Err
                 eprintln!("exited code block");
                 in_code_block = false;
             }
-            writeln!(dst, "{}", trimmed)?;
+            writeln!(dst, "{}", s)?;
             continue;
         }
         if in_code_block {
-            writeln!(dst, "{}", trimmed)?;
+            writeln!(dst, "{}", s)?;
             continue;
         }
 
